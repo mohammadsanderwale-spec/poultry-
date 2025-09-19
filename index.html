@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poultry Farm Tracker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f8f9fa; padding:20px; }
+    h1 { color:#2c3e50; }
+    .card { background:white; padding:15px; margin-bottom:15px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+    label { display:block; margin:8px 0 4px; }
+    input { padding:8px; width:100%; }
+    button { margin-top:10px; padding:10px; border:none; border-radius:6px; background:#2c3e50; color:white; cursor:pointer; }
+    button:hover { background:#1a242f; }
+    table { width:100%; border-collapse:collapse; margin-top:15px; }
+    th,td { padding:10px; border:1px solid #ddd; text-align:center; }
+  </style>
+</head>
+<body>
+  <h1>🐔 Poultry Farm Tracker</h1>
+
+  <div class="card">
+    <label>Total Birds Added (Initial Stock)</label>
+    <input type="number" id="birdsAdded" placeholder="e.g. 1000">
+
+    <label>Feed Given Today (kg)</label>
+    <input type="number" id="feed" step="0.1" placeholder="Feed in kg">
+    
+    <label>Average Bird Weight Today (kg)</label>
+    <input type="number" id="weight" step="0.01" placeholder="Avg weight per bird">
+
+    <label>Deaths Today</label>
+    <input type="number" id="dead" placeholder="Dead birds">
+
+    <button onclick="addRecord()">Add Record</button>
+    <button onclick="generatePDF()">📄 Generate PDF</button>
+  </div>
+
+  <h2>📊 Daily Records</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Birds Alive</th>
+        <th>Feed (kg)</th>
+        <th>Avg Weight (kg)</th>
+        <th>Growth (kg)</th>
+        <th>Deaths</th>
+        <th>FCR</th>
+      </tr>
+    </thead>
+    <tbody id="records"></tbody>
+  </table>
+
+  <script>
+    let records = [];
+    let totalBirds = 0;
+    let prevWeight = 0;
+
+    function addRecord() {
+      let added = parseInt(document.getElementById("birdsAdded").value) || 0;
+      let feed = parseFloat(document.getElementById("feed").value) || 0;
+      let weight = parseFloat(document.getElementById("weight").value) || 0;
+      let dead = parseInt(document.getElementById("dead").value) || 0;
+
+      if (added > 0 && totalBirds === 0) {
+        totalBirds = added; // set initial stock only once
+      }
+
+      totalBirds -= dead; // update after deaths
+
+      let growth = prevWeight > 0 ? (weight - prevWeight).toFixed(3) : "-";
+      let weightGain = prevWeight > 0 ? (weight - prevWeight) : 0;
+      let fcr = weightGain > 0 ? (feed / weightGain).toFixed(2) : "-";
+
+      prevWeight = weight;
+
+      let date = new Date().toLocaleDateString();
+      let row = {date, birds: totalBirds, feed, weight, growth, dead, fcr};
+
+      records.push(row);
+      updateTable();
+      saveData();
+
+      // reset inputs except birdsAdded
+      document.getElementById("feed").value = "";
+      document.getElementById("weight").value = "";
+      document.getElementById("dead").value = "";
+    }
+
+    function updateTable() {
+      let table = document.getElementById("records");
+      table.innerHTML = "";
+      records.forEach(r => {
+        table.innerHTML += `<tr>
+          <td>${r.date}</td>
+          <td>${r.birds}</td>
+          <td>${r.feed}</td>
+          <td>${r.weight}</td>
+          <td>${r.growth}</td>
+          <td>${r.dead}</td>
+          <td>${r.fcr}</td>
+        </tr>`;
+      });
+    }
+
+    function saveData() {
+      localStorage.setItem("poultryRecords", JSON.stringify(records));
+      localStorage.setItem("totalBirds", totalBirds);
+      localStorage.setItem("prevWeight", prevWeight);
+    }
+
+    window.onload = function() {
+      if (localStorage.getItem("poultryRecords")) {
+        records = JSON.parse(localStorage.getItem("poultryRecords"));
+        totalBirds = parseInt(localStorage.getItem("totalBirds")) || 0;
+        prevWeight = parseFloat(localStorage.getItem("prevWeight")) || 0;
+        updateTable();
+      }
+    }
+
+    function generatePDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.text("Poultry Farm Daily Report", 20, 20);
+
+      let y = 40;
+      records.forEach(r => {
+        doc.text(`${r.date} | Birds: ${r.birds} | Feed: ${r.feed}kg | Weight: ${r.weight}kg | Growth: ${r.growth}kg | Dead: ${r.dead} | FCR: ${r.fcr}`, 20, y);
+        y += 10;
+      });
+
+      doc.save("Poultry_Report.pdf");
+    }
+  </script>
+</body>
+</html>
